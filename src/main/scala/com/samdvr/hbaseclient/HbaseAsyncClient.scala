@@ -34,11 +34,14 @@ object HbaseAsyncClient {
       Stream.bracket(connection)(c => F.delay(c.close()))
     }
 
+
     override def get(table: Array[Byte], row: Array[Byte]): F[Result] = {
       F.async { cb =>
         connectionBracket
-          .map(c => c.getTable(TableName.valueOf(table)))
-          .map(x => convertCompletableFuture(cb, x.get(new Get(row)).toCompletableFuture))
+          .map(c => convertCompletableFuture(cb,
+            c.getTable(TableName.valueOf(table))
+              .get(new Get(row)).toCompletableFuture))
+
 
       }
     }
@@ -48,9 +51,9 @@ object HbaseAsyncClient {
                      column: Array[Byte],
                      qualifier: Array[Byte]): F[Result] = F.async { cb =>
       connectionBracket
-        .map(c => c.getTable(TableName.valueOf(table)))
-        .map(x => convertCompletableFuture(cb, x.get(
-          new Get(row).addColumn(column, qualifier)).toCompletableFuture))
+        .map(c => convertCompletableFuture(cb,
+          c.getTable(TableName.valueOf(table))
+            .get(new Get(row).addColumn(column, qualifier)).toCompletableFuture))
 
     }
 
@@ -89,9 +92,9 @@ object HbaseAsyncClient {
     override def put(table: Array[Byte], row: Array[Byte]): F[Result] = F.async { cb =>
       connectionBracket
         .map { x =>
-          convertCompletableFuture(
-            cb,
-            x.getTable(TableName.valueOf(table)).put(new Put(row)).toCompletableFuture)
+          convertCompletableFuture(cb,
+            x.getTable(TableName.valueOf(table))
+              .put(new Put(row)).toCompletableFuture)
         }
     }
 

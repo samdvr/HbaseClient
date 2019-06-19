@@ -1,10 +1,13 @@
 package com.samdvr.hbaseclient
 
+import java.util.concurrent.CompletableFuture
+
 import cats.effect.ConcurrentEffect
 import org.apache.hadoop.hbase.client._
 import org.apache.hadoop.hbase.TableName
 import org.apache.hadoop.hbase.filter.{Filter, PrefixFilter}
 import fs2._
+
 import scala.collection.JavaConverters._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
@@ -35,11 +38,7 @@ object HbaseAsyncClient {
       F.async { cb =>
         connectionBracket
           .map(c => c.getTable(TableName.valueOf(table)))
-          .map(x => FutureConverters.toScala(x.get(
-            new Get(row)).toCompletableFuture).onComplete {
-            case Success(value) => cb(Right(value))
-            case Failure(exception) => cb(Left(exception))
-          })
+          .map(x => convertCompletableFuture(cb, x.get(new Get(row)).toCompletableFuture))
 
       }
     }
@@ -50,11 +49,8 @@ object HbaseAsyncClient {
                      qualifier: Array[Byte]): F[Result] = F.async { cb =>
       connectionBracket
         .map(c => c.getTable(TableName.valueOf(table)))
-        .map(x => FutureConverters.toScala(x.get(
-          new Get(row).addColumn(column, qualifier)).toCompletableFuture).onComplete {
-          case Success(value) => cb(Right(value))
-          case Failure(exception) => cb(Left(exception))
-        })
+        .map(x => convertCompletableFuture(cb, x.get(
+          new Get(row).addColumn(column, qualifier)).toCompletableFuture))
 
     }
 
@@ -92,8 +88,19 @@ object HbaseAsyncClient {
 
     override def put(table: Array[Byte], row: Array[Byte]): F[Result] = F.async { cb =>
       connectionBracket
-        .map(_.getTable(TableName.valueOf(table))
-          .put(new Put(row)).toCompletableFuture)
+        .map { x =>
+          convertCompletableFuture(
+            cb,
+            x.getTable(TableName.valueOf(table)).put(new Put(row)).toCompletableFuture)
+        }
+    }
+
+    private def convertCompletableFuture[A](cb: Either[Throwable, Result] => Unit, future: CompletableFuture[A])(
+      implicit ec: ExecutionContext) = {
+      FutureConverters.toScala(future).onComplete {
+        case Success(value) => cb(Right(value))
+        case Failure(exception) => cb(Left(exception))
+      }
     }
   }
 

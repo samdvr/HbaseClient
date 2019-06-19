@@ -1,1 +1,1 @@
-###Async Hbase Client for Scala
+### Async Hbase Client for Scala

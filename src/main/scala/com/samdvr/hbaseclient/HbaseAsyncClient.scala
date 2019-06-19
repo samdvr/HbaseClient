@@ -99,7 +99,7 @@ object HbaseAsyncClient {
     }
 
     private def convertCompletableFuture[A](cb: Either[Throwable, Result] => Unit, future: CompletableFuture[A])(
-      implicit ec: ExecutionContext) = {
+      implicit ec: ExecutionContext): Unit = {
       FutureConverters.toScala(future).onComplete {
         case Success(value) => cb(Right(value))
         case Failure(exception) => cb(Left(exception))
